@@ -1,10 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import 'package:funvas/funvas.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized(); // Для корректной работы InAppWebView
+  runApp( MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -13,11 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Jester Big Bass WebView',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: const WebViewScreen(),
+      home:  pusWeb(url: 'https://jester-big-bass.online/jbb/',),
       debugShowCheckedModeBanner: false,
     );
   }
@@ -32,36 +29,37 @@ class WebViewScreen extends StatefulWidget {
 
 class _WebViewScreenState extends State<WebViewScreen> {
   bool _isLoading = true;
-  late final WebViewController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() {
-              _isLoading = true;
-            });
-          },
-          onPageFinished: (url) {
-            setState(() {
-              _isLoading = false;
-            });
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse('https://jester-big-bass.online/jbb/'));
-  }
+  InAppWebViewController? _webViewController;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
+          InAppWebView(
+            initialUrlRequest: URLRequest(
+              url: WebUri('https://jester-big-bass.online/jbb/'),
+            ),
+            initialOptions: InAppWebViewGroupOptions(
+              crossPlatform: InAppWebViewOptions(
+                javaScriptEnabled: true,
+                useShouldOverrideUrlLoading: true,
+              ),
+            ),
+            onWebViewCreated: (controller) {
+              _webViewController = controller;
+            },
+            onLoadStart: (controller, url) {
+              setState(() {
+                _isLoading = true;
+              });
+            },
+            onLoadStop: (controller, url) async {
+              setState(() {
+                _isLoading = false;
+              });
+            },
+          ),
           if (_isLoading)
             Container(
               color: Colors.white,
@@ -110,5 +108,62 @@ class LoaderFunvas extends Funvas {
         );
       c.drawCircle(Offset(xPos, yPos), size * 0.08, paint);
     }
+  }
+}
+
+class pusWeb extends StatefulWidget {
+  final String url; // URL, который нужно загрузить в WebView.
+
+  pusWeb({required this.url}); // Конструктор для передачи URL.
+
+  @override
+  State<pusWeb> createState() => _pusWebState();
+}
+
+class _pusWebState extends State<pusWeb> {
+  late InAppWebViewController _webViewController; // Контроллер WebView.
+  double _progress = 0; // Прогресс загрузки страницы.
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+
+      body: Stack(
+        children: [
+          InAppWebView(
+            initialSettings: InAppWebViewSettings(
+
+              javaScriptEnabled: true, // Enable JavaScript
+              javaScriptCanOpenWindowsAutomatically: true, // Allow JS to open new windows
+            ),
+            initialUrlRequest: URLRequest(url: WebUri(widget.url)), // URL для загрузки.
+            onWebViewCreated: (controller) {
+              _webViewController = controller; // Инициализация контроллера.
+            },
+            onLoadStart: (controller, url) {
+              setState(() {
+                _progress = 0; // При начале загрузки сбрасываем прогресс.
+              });
+            },
+            onLoadStop: (controller, url) {
+              setState(() {
+                _progress = 1; // Загрузка завершена.
+              });
+            },
+            onProgressChanged: (controller, progress) {
+              setState(() {
+                _progress = progress / 100; // Обновление прогресса загрузки.
+              });
+            },
+          ),
+          if (_progress < 1) // Показываем индикатор загрузки, пока страница не загрузится.
+            LinearProgressIndicator(
+              value: _progress,
+              backgroundColor: Colors.grey[200],
+              color: Colors.blue,
+            ),
+        ],
+      ),
+    );
   }
 }
